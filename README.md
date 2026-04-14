@@ -21,7 +21,7 @@ Run this lightning-fast first-minute bootstrap script right after provisioningâ€
 Run it directly on the server as root:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mrmierzejewski/bootstrap-secure-linux/refs/heads/master/boostrap-secure-linux.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/mrmierzejewski/bootstrap-secure-linux/refs/heads/main/bootstrap-secure-linux.sh | sudo bash
 ```
 
 ### Download and run locally (optional)
@@ -29,7 +29,7 @@ curl -fsSL https://raw.githubusercontent.com/mrmierzejewski/bootstrap-secure-lin
 If you prefer to inspect the script first (recommended for production), download it, review it, then run:
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/mrmierzejewski/bootstrap-secure-linux/refs/heads/master/boostrap-secure-linux.sh
+curl -fsSLO https://raw.githubusercontent.com/mrmierzejewski/bootstrap-secure-linux/refs/heads/main/bootstrap-secure-linux.sh
 chmod +x bootstrap-secure-linux.sh
 sudo ./bootstrap-secure-linux.sh
 ```
