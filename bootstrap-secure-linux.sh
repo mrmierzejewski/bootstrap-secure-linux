@@ -156,7 +156,8 @@ echo -e "       unintentionally expose your container ports to the public intern
 echo -e "       ${GREEN}Recommendation:${NC} Use an external cloud-provider firewall (e.g.,"
 echo -e "       AWS Security Groups, DigitalOcean Firewalls) if using Docker."
 echo ""
-read -p "Do you want to allow any other UFW ports? (e.g., 80,443) [none]: " other_ports < /dev/tty || error "Failed to read additional ports (no TTY?)."
+echo -e "       Default allowed ports: ${GREEN}22 (SSH), 80 (HTTP), 443 (HTTPS)${NC}"
+read -p "Any additional UFW ports to allow? (e.g., 8080 8443) [none]: " other_ports < /dev/tty || error "Failed to read additional ports (no TTY?)."
 
 read -p "Enter locale [en_US.UTF-8]: " locale < /dev/tty || error "Failed to read locale (no TTY?)."
 locale=${locale:-en_US.UTF-8}
