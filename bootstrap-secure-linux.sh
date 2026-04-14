@@ -125,24 +125,24 @@ if ! [ -t 0 ] && ! [ -r /dev/tty ]; then
     error "No interactive TTY available. Run from an interactive SSH session, or download the script and run it locally."
 fi
 
-username=""
-password=""
-password_confirm=""
-ssh_key_path=""
-other_ports=""
-locale=""
-timezone=""
+declare username=""
+declare password=""
+declare password_confirm=""
+declare ssh_key_path=""
+declare other_ports=""
+declare locale=""
+declare timezone=""
 
-read -p "Enter username for the new sudo user: " username < /dev/tty
-read -s -p "Enter password for $username: " password < /dev/tty
+read -p "Enter username for the new sudo user: " username < /dev/tty || error "Failed to read username (no TTY?)."
+read -s -p "Enter password for ${username}: " password < /dev/tty || error "Failed to read password (no TTY?)."
 echo > /dev/tty
-read -s -p "Confirm password: " password_confirm < /dev/tty
+read -s -p "Confirm password: " password_confirm < /dev/tty || error "Failed to read password confirmation (no TTY?)."
 echo > /dev/tty
 if [ "$password" != "$password_confirm" ]; then
     error "Passwords do not match."
 fi
 
-read -p "Enter path to SSH public key [~/.ssh/id_rsa.pub]: " ssh_key_path < /dev/tty
+read -p "Enter path to SSH public key [~/.ssh/id_rsa.pub]: " ssh_key_path < /dev/tty || error "Failed to read SSH key path (no TTY?)."
 ssh_key_path=${ssh_key_path:-~/.ssh/id_rsa.pub}
 if [ ! -f "$ssh_key_path" ]; then
     error "SSH public key file not found at $ssh_key_path"
@@ -156,12 +156,12 @@ echo -e "       unintentionally expose your container ports to the public intern
 echo -e "       ${GREEN}Recommendation:${NC} Use an external cloud-provider firewall (e.g.,"
 echo -e "       AWS Security Groups, DigitalOcean Firewalls) if using Docker."
 echo ""
-read -p "Do you want to allow any other UFW ports? (e.g., 80,443) [none]: " other_ports < /dev/tty
+read -p "Do you want to allow any other UFW ports? (e.g., 80,443) [none]: " other_ports < /dev/tty || error "Failed to read additional ports (no TTY?)."
 
-read -p "Enter locale [en_US.UTF-8]: " locale < /dev/tty
+read -p "Enter locale [en_US.UTF-8]: " locale < /dev/tty || error "Failed to read locale (no TTY?)."
 locale=${locale:-en_US.UTF-8}
 
-read -p "Enter timezone [UTC]: " timezone < /dev/tty
+read -p "Enter timezone [UTC]: " timezone < /dev/tty || error "Failed to read timezone (no TTY?)."
 timezone=${timezone:-UTC}
 
 echo ""
@@ -177,7 +177,7 @@ run_with_spinner "Installing security tools (UFW, Fail2ban, Auditd)" env DEBIAN_
 # Create the new user
 info "Setting up user: ${YELLOW}$username${NC}"
 useradd -m -s /bin/bash "$username" || true  # Ignore if user exists
-echo "$username:$password" | chpasswd
+echo "$username:${password:?Password not set}" | chpasswd
 usermod -aG sudo "$username"
 success "User created and granted sudo privileges"
 
