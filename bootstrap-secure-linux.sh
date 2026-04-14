@@ -24,7 +24,7 @@ warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 
 show_help() {
     echo -e "${CYAN}=================================================${NC}"
-    echo -e "${CYAN}      Secure Server Provisioning Script V2       ${NC}"
+    echo -e "${CYAN}           Bootstrap Secure Linux                ${NC}"
     echo -e "${CYAN}=================================================${NC}"
     echo -e "Usage: sudo ./$(basename "$0") [OPTIONS]\n"
     echo -e "${YELLOW}Description:${NC}"
@@ -282,8 +282,8 @@ echo -e "       ${YELLOW}ssh $username@<your_server_ip>${NC}"
 echo -e "       Do this from ANOTHER terminal before closing this one."
 echo ""
 
-read -p "Do you want to reboot the server now? (y/N) " -n 1 -r
-echo
+read -p "Do you want to reboot the server now? (y/N) " -n 1 -r < /dev/tty || error "Failed to read reboot prompt (no TTY?)."
+echo > /dev/tty
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     info "Rebooting server..."
     reboot
