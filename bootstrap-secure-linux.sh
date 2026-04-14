@@ -121,14 +121,8 @@ echo ""
 # --- Interactive Prompts (Done upfront so the user can walk away) ---
 info "Gathering configuration details..."
 
-TTY_FD=0
-if ! [ -t 0 ]; then
-    if [ -r /dev/tty ]; then
-        exec 3</dev/tty
-        TTY_FD=3
-    else
-        error "No interactive TTY available. If running remotely, use: curl ... | sudo bash (from an interactive SSH session) or download the script and run it locally."
-    fi
+if ! [ -t 0 ] && ! [ -r /dev/tty ]; then
+    error "No interactive TTY available. Run from an interactive SSH session, or download the script and run it locally."
 fi
 
 username=""
@@ -139,16 +133,16 @@ other_ports=""
 locale=""
 timezone=""
 
-read -u "$TTY_FD" -p "Enter username for the new sudo user: " username
-read -u "$TTY_FD" -s -p "Enter password for $username: " password
-echo
-read -u "$TTY_FD" -s -p "Confirm password: " password_confirm
-echo
+read -p "Enter username for the new sudo user: " username < /dev/tty
+read -s -p "Enter password for $username: " password < /dev/tty
+echo > /dev/tty
+read -s -p "Confirm password: " password_confirm < /dev/tty
+echo > /dev/tty
 if [ "$password" != "$password_confirm" ]; then
     error "Passwords do not match."
 fi
 
-read -u "$TTY_FD" -p "Enter path to SSH public key [~/.ssh/id_rsa.pub]: " ssh_key_path
+read -p "Enter path to SSH public key [~/.ssh/id_rsa.pub]: " ssh_key_path < /dev/tty
 ssh_key_path=${ssh_key_path:-~/.ssh/id_rsa.pub}
 if [ ! -f "$ssh_key_path" ]; then
     error "SSH public key file not found at $ssh_key_path"
@@ -162,12 +156,12 @@ echo -e "       unintentionally expose your container ports to the public intern
 echo -e "       ${GREEN}Recommendation:${NC} Use an external cloud-provider firewall (e.g.,"
 echo -e "       AWS Security Groups, DigitalOcean Firewalls) if using Docker."
 echo ""
-read -u "$TTY_FD" -p "Do you want to allow any other UFW ports? (e.g., 80,443) [none]: " other_ports
+read -p "Do you want to allow any other UFW ports? (e.g., 80,443) [none]: " other_ports < /dev/tty
 
-read -u "$TTY_FD" -p "Enter locale [en_US.UTF-8]: " locale
+read -p "Enter locale [en_US.UTF-8]: " locale < /dev/tty
 locale=${locale:-en_US.UTF-8}
 
-read -u "$TTY_FD" -p "Enter timezone [UTC]: " timezone
+read -p "Enter timezone [UTC]: " timezone < /dev/tty
 timezone=${timezone:-UTC}
 
 echo ""
