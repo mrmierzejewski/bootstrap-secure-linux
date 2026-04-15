@@ -1,32 +1,20 @@
 # bootstrap-secure-linux
 
-**Secure your fresh Ubuntu/Debian server in just 60 seconds!**
+**Secure your fresh Ubuntu or Debian server in about a minute.**
 
-Run this lightning-fast first-minute bootstrap script right after provisioning—it instantly creates a non-root sudo user, locks down SSH, fires up a deny-by-default firewall, adds brute-force protection, and enables automatic security updates. Hit the ground running with a rock-solid secure baseline—before you install apps or expose services.
+Secure your Linux server in 60 seconds with a single command! `bootstrap-secure-linux` transforms your fresh install into a hardened, production-ready machine-automatically. It creates a dedicated admin user, locks down SSH to key-based logins, blocks everything at the firewall except what you explicitly allow, and sets up automatic security updates. Eliminate common threats like password attacks, accidental open ports, and missed patches—instantly and effortlessly.
 
-## What this script is for
+Works out of the box for **Debian and Ubuntu** systems that use `apt`, `ufw`, and `systemd` (`systemctl`, `timedatectl`). Every run is consistent and logs all actions to your local directory for full transparency.
 
-- **New server baseline**: you just provisioned a VPS/cloud instance and need sane defaults fast.
-- **Reduce common compromise paths**: disable risky SSH settings (root login, passwords), add a firewall, and install basic security tooling.
-- **Make results reproducible**: the script applies the same baseline each time and captures a full log.
+## How to run it
 
-## Supported systems
-
-- **Debian/Ubuntu-based** systems with `apt` (the script uses `apt`, `ufw`, `systemctl`, `timedatectl`).
-
-## How to run
-
-### Run remotely (recommended)
-
-Run it directly on the server as root:
+The usual approach is to pipe the script straight from the network into the shell on the server (as root):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/mrmierzejewski/bootstrap-secure-linux/refs/heads/main/bootstrap-secure-linux.sh | sudo bash
 ```
 
-### Download and run locally (optional)
-
-If you prefer to inspect the script first (recommended for production), download it, review it, then run:
+If you would rather read the script before you execute it—which is a good idea in production—download it, inspect it, make it executable, and run it locally:
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/mrmierzejewski/bootstrap-secure-linux/refs/heads/main/bootstrap-secure-linux.sh
@@ -34,126 +22,30 @@ chmod +x bootstrap-secure-linux.sh
 sudo ./bootstrap-secure-linux.sh
 ```
 
-It will prompt you for:
+The script is interactive. It will ask for a new sudo username and password, the path to an SSH public key (defaulting to `~/.ssh/id_rsa.pub` if you press Enter), any **extra** firewall ports beyond the defaults (see below), plus locale and timezone. It writes a full log next to where you ran it, named like `bootstrap-secure-linux-YYYYMMDDHHMMSS.log`, so you can review what happened without scrolling the terminal.
 
-- a new sudo username + password
-- a path to an SSH public key (default: `~/.ssh/id_rsa.pub`)
-- optional extra UFW ports (e.g. `80,443`)
-- locale and timezone
+Pass `-h` or `--help` to print usage and exit without changing the system.
 
-### Logs
+## What the script actually does
 
-The script writes detailed output to a log file created in **your current working directory**:
+**Users and SSH.** It creates a normal user with sudo and installs your public key so you can log in without passwords over SSH. Day-to-day work should not use the root account directly; `sudo` adds a small barrier and better traceability. Keys beat passwords for resistance to brute-force and reuse.
 
-- **Filename format**: `bootstrap-secure-linux-YYYYMMDDHHMMSS.log`
-- **Example**: `bootstrap-secure-linux-20260414153012.log`
+**SSH daemon.** It tightens `/etc/ssh/sshd_config`: no direct root login, no password authentication (keys only), X11 forwarding off, a low `MaxAuthTries`, and `AllowUsers` limited to the user you just created. Attackers probe `root` and passwords first; this configuration pushes you toward named accounts and keys. The original config is copied aside before changes, and the SSH service is restarted.
 
-## Options
+**Firewall.** UFW is reset to **deny incoming by default** and **allow outgoing**. By default it allows **SSH (port 22)**, **HTTP (80)**, and **HTTPS (443)**; the prompt only asks if you need **additional** ports beyond that. That keeps accidental exposure small while still covering typical web stacks. If you run Docker, remember that Docker can manipulate `iptables` in ways that bypass UFW, so a cloud-provider firewall (security groups, VPC rules, or similar) is still the right place for your real perimeter when containers are in play.
 
-### `-h`, `--help`
+**Kernel tuning.** A small `sysctl` profile is written under `/etc/sysctl.d/` and applied—reverse-path filtering, turning off risky IP behaviors, SYN cookies, and a few TCP tuning knobs—to shave risk from spoofing, floods, and noisy network abuse.
 
-Shows built-in help/usage and exits.
+**Shared memory.** If needed, `/dev/shm` is mounted with `noexec`, `nosuid`, and `nodev` via `fstab` and remounted, which makes it harder to abuse shared memory for execution or privilege tricks.
 
-## What it changes (and why)
+**Fail2ban and auditd.** Fail2ban gets an SSH jail so repeated failed logins get blocked automatically. `auditd` is installed for host-level auditing when you need to dig into what happened after the fact.
 
-Below is the full set of changes the script applies, with rationale for each one.
+**Updates and housekeeping.** Unattended security upgrades are enabled so critical patches do not wait for a manual `apt` day. Locale and timezone are set so logs and cron line up with how you expect to read them. At the end you can reboot so anything that needs a full restart (kernel or deep libraries) is not left half-applied.
 
-### User & access management
+## Using it safely
 
-- **Create a non-root user and add to `sudo`**
-  - **Why**: day-to-day admin work should not happen as root. Using `sudo` adds friction and logging, and reduces damage from mistakes.
-- **Install an SSH public key for that user**
-  - **Why**: key-based authentication is far more resistant to brute-force attacks than passwords, and avoids password reuse/leaks.
-
-### SSH hardening (`/etc/ssh/sshd_config`)
-
-The script modifies SSH settings and restarts the SSH service:
-
-- **Disable root login** (`PermitRootLogin no`)
-  - **Why**: attackers target `root` first. Removing direct root access forces use of a named account and `sudo`, improving accountability and reducing risk.
-- **Disable password authentication** (`PasswordAuthentication no`)
-  - **Why**: eliminates online password brute forcing. You authenticate via SSH keys only.
-- **Disable X11 forwarding** (`X11Forwarding no`)
-  - **Why**: reduces attack surface and prevents forwarding-related abuse on servers that don’t need GUI forwarding.
-- **Limit authentication attempts** (`MaxAuthTries 3`)
-  - **Why**: slows down brute-force attempts and reduces log noise.
-- **Allow only your new user** (`AllowUsers <username>`)
-  - **Why**: even if additional accounts exist, SSH login is restricted to the explicit admin user, reducing lateral entry points.
-- **Back up original SSH config**
-  - **Why**: safer recovery if you need to roll back changes.
-
-### Firewall (UFW)
-
-- **Default deny inbound, allow outbound**
-  - **Why**: most servers should only expose a small set of services. Deny-by-default prevents accidental exposure.
-- **Allow SSH**
-  - **Why**: you need remote access to administer the server.
-- **Optionally allow additional ports**
-  - **Why**: lets you open only what you need (e.g. HTTP/HTTPS).
-
-#### Important note about Docker
-
-Docker can manipulate `iptables` directly and may bypass UFW rules depending on configuration. If you plan to run Docker, strongly consider using a cloud-provider firewall (Security Groups / VPC firewall / edge firewall) as the authoritative perimeter control.
-
-### Kernel network hardening (sysctl)
-
-The script writes `/etc/sysctl.d/99-security.conf` and applies it via `sysctl --system`.
-
-Settings include:
-
-- **Reverse path filtering** (`rp_filter`)
-  - **Why**: helps mitigate IP spoofing on multi-homed systems and some misrouting scenarios.
-- **Ignore ICMP broadcasts**
-  - **Why**: reduces susceptibility to certain amplification/SMURF-style legacy attack patterns.
-- **Disable source routing**
-  - **Why**: source-routed packets are rarely needed and are a known risk.
-- **Disable ICMP redirects**
-  - **Why**: prevents route-manipulation attacks and misconfig-induced rerouting.
-- **Enable SYN cookies**
-  - **Why**: improves resilience against SYN flood attacks.
-- **Tune SYN backlog and retry counts**
-  - **Why**: small resilience improvements under abusive or high-latency conditions.
-
-### Secure shared memory (`/dev/shm`)
-
-- **Mount `/dev/shm` with `noexec,nosuid,nodev`**
-  - **Why**: reduces the risk of executing malicious payloads from shared memory and limits privilege escalation vectors that rely on `suid`/device nodes.
-  - The script appends an entry to `/etc/fstab` (if missing) and remounts.
-
-### Intrusion prevention: Fail2ban
-
-- **Install and configure Fail2ban**
-  - **Why**: automatically bans IPs that repeatedly fail authentication, reducing brute-force noise and load.
-- **Enable an `sshd` jail**
-  - **Why**: focuses on the most common exposed service on new servers: SSH.
-
-### Auditing: auditd
-
-- **Install `auditd`**
-  - **Why**: provides low-level security auditing, useful for forensics and monitoring critical system events.
-
-### Automatic security updates: unattended-upgrades
-
-- **Enable unattended security upgrades**
-  - **Why**: reduces the window of exposure for known vulnerabilities by automatically applying security updates.
-  - This is especially important for servers that won’t be actively maintained daily.
-
-### Locale and timezone
-
-- **Set locale and timezone**
-  - **Why**: consistent system locale/timezone improves log readability, correlating events, and operational correctness (cron, timestamps).
-
-### Reboot prompt
-
-- The script offers to reboot at the end.
-  - **Why**: some security updates and kernel-level changes may require a restart to fully apply.
-
-## Operational safety notes
-
-- **Run from a safe environment**: execute from a machine/network where you can maintain SSH access.
-- **Keep a second terminal open**: after hardening SSH, test logging in as the new user before closing your root session.
-- **Be careful with SSH changes**: if you mis-specify the SSH key path or lock down SSH incorrectly, you can lock yourself out. The script tries to be safe, but always validate access.
+Run it from a session where you can afford to lose this shell only after you have confirmed a second way in - ideally **another terminal** where you `ssh` as the new user before you close the root session. Wrong SSH key paths or typos are how people lock themselves out; the script is conservative, but verification is still on you.
 
 ## License
 
-Released under the MIT License
+Released under the MIT License.
